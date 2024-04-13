@@ -1,13 +1,13 @@
 import logging
 import time
-from fetcher import DataFetcher
-from cleaner import DataCleaner
-from processor import DataProcessor
-from train import ModelTrainer
-from strategy import TradingStrategy
-from executer import TradeExecuter
-from risk_management import RiskManager
-from config import Config
+from data.fetcher import DataFetcher
+from data.cleaner import DataCleaner
+from data.processor import DataProcessor
+from models.train import ModelTrainer
+from trading.strategy import TradingStrategy
+from trading.executer import TradeExecuter
+from trading.risk_management import RiskManager
+from utilities.config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
