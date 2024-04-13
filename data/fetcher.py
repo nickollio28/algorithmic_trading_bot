@@ -27,6 +27,11 @@ class DataFetcher:
         }
         response = requests.get(self.news_api_url, params=params)
         return response.json()
+    
+    def fetch_available_capital():
+        """Fetch total amount I am investing"""
+        # TODO: update
+        return 1000
 
 # Example usage
 if __name__ == "__main__":

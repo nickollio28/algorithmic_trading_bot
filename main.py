@@ -1,12 +1,12 @@
 # Import necessary modules and classes
-from fetcher import DataFetcher
-from cleaner import DataCleaner
-from processor import DataProcessor
-from trainer import ModelTrainer
-from strategy import TradingStrategy
-from executer import TradeExecuter
-from risk_management import RiskManager
-from config import Config
+from data.fetcher import DataFetcher
+from data.cleaner import DataCleaner
+from data.processor import DataProcessor
+from models.train import ModelTrainer
+from trading.strategy import TradingStrategy
+from trading.executer import TradeExecuter
+from trading.risk_management import RiskManager
+from utilities.config import Config
 import time
 
 # Initialize components
@@ -40,8 +40,8 @@ def main_trading_loop():
 
             # Execute trade
             if action != 'Hold':
-                trade_size = risk_manager.calculate_trade_size(price, available_capital)
-                executer.execute_trade(action.lower(), market_data['symbol'], trade_size, price)
+                trade_size = risk_manager.calculate_trade_size(price, DataFetcher.fetch_available_capital())
+                order_id = executer.execute_trade(action.lower(), market_data['symbol'], trade_size, price)
                 risk_manager.check_order_status(order_id)  # Assuming order_id is returned by execute_trade
 
             time.sleep(60)  # Sleep for 1 minute before next iteration
