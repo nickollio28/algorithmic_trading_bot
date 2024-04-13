@@ -1,18 +1,22 @@
 import pandas as pd
 import numpy as np
-from tensorflow.keras.models import load_model
+from keras.models import load_model
+from keras.preprocessing.sequence import TimeseriesGenerator
 from sklearn.preprocessing import StandardScaler
+import joblib
+import logging
+
+# Setup basic configuration for logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class ModelUpdater:
     def __init__(self, model_path, scaler_path):
         # Load the existing trained model and scaler
         self.model = load_model(model_path)
-        self.scaler = StandardScaler()  # Assuming scaler state is saved and loaded appropriately
         self.scaler = self.load_scaler(scaler_path)
 
     def load_scaler(self, scaler_path):
         """Load the scaler used in the training phase."""
-        import joblib
         return joblib.load(scaler_path)
 
     def preprocess_data(self, new_data):
@@ -23,20 +27,36 @@ class ModelUpdater:
             pass  # Use the DataFrame as is
         else:
             raise ValueError("Input data should be a dictionary or a pandas DataFrame.")
+        
+        self.validate_data(new_data)
 
         features = new_data.select_dtypes(include=[np.number])  # Selecting numeric columns for scaling
         features_scaled = self.scaler.transform(features)
-        return features_scaled
+        return features_scaled.reshape(1, features_scaled.shape[0], 1)  # Reshape for LSTM
 
-    def update_model(self, new_data, new_labels):
-        """Update the model incrementally with new data."""
-        preprocessed_data = self.preprocess_data(new_data)
-        self.model.fit(preprocessed_data, new_labels, epochs=1, batch_size=len(new_labels))
+    def validate_data(self, new_data):
+        """Validate new data for expected formats and completeness."""
+        required_columns = ['Feature1', 'Feature2', 'Feature3', 'Feature4']
+        if not all(col in new_data.columns for col in required_columns):
+            missing = list(set(required_columns) - set(new_data.columns))
+            logging.error("Missing columns: %s", missing)
+            raise ValueError(f"Missing columns: {missing}")
+
+    def update_model(self, new_data, new_labels, batch_size=10):
+        """Update the model incrementally with new data in batches."""
+        try:
+            preprocessed_data = self.preprocess_data(new_data)
+            # Assuming new_labels are provided in the same batch structure
+            self.model.fit(preprocessed_data, new_labels, epochs=1, batch_size=batch_size)
+            logging.info("Model updated successfully.")
+        except Exception as e:
+            logging.error("Failed to update model: %s", e)
+            raise
 
     def save_updated_model(self, new_model_path):
         """Save the updated model to a new path."""
         self.model.save(new_model_path)
-        print("Updated model saved successfully.")
+        logging.info("Updated model saved successfully.")
 
 # Usage example
 if __name__ == "__main__":
@@ -48,7 +68,7 @@ if __name__ == "__main__":
         'Feature3': 3.7,
         'Feature4': 1.3
     }
-    new_labels = np.array([120.5])  # Example new target value
+    new_labels = np.array([[120.5]])  # Example new target value reshaped for LSTM
 
     updater.update_model(new_data, new_labels)
     updater.save_updated_model('path_to_updated_model.h5')

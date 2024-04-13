@@ -1,4 +1,5 @@
-# Import necessary modules and classes
+import logging
+import time
 from data.fetcher import DataFetcher
 from data.cleaner import DataCleaner
 from data.processor import DataProcessor
@@ -7,7 +8,9 @@ from trading.strategy import TradingStrategy
 from trading.executer import TradeExecuter
 from trading.risk_management import RiskManager
 from utilities.config import Config
-import time
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Initialize components
 fetcher = DataFetcher()
@@ -17,38 +20,40 @@ trainer = ModelTrainer()
 executer = TradeExecuter(Config.TRADE_EXECUTION_URL, Config.API_KEY_BROKERAGE)
 risk_manager = RiskManager(Config.MAX_TRADE_LIMIT, Config.STOP_LOSS_THRESHOLD, Config.VOLATILITY_THRESHOLD)
 
-# Define main trading loop
 def main_trading_loop():
+    stocks = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'FB', 'TSLA']  # Example list of stocks
     while True:
-        try:
-            # Fetch data from sources
-            raw_data = fetcher.fetch_data()
-            
-            # Clean and process the data
-            cleaned_data = cleaner.clean_data(raw_data)
-            processed_data = processor.process_data(cleaned_data)
+        for symbol in stocks:
+            try:
+                # Fetch and process data for each stock
+                raw_data = fetcher.fetch_stock_data(symbol, '1d')  # Fetch daily data for the stock
+                logging.info(f"Data fetched successfully for {symbol}.")
 
-            # Train the model
-            trainer.train_model(processed_data)
+                cleaned_data = cleaner.clean_stock_data(raw_data)
+                processed_data = processor.add_technical_indicators(cleaned_data)
+                logging.info(f"Data cleaned and processed for {symbol}.")
 
-            # Get market data for trading decision
-            market_data = processed_data[-1]  # Example: Last processed data point
+                # Update model with new data or retrain if necessary
+                model = trainer.update_model(processed_data)  # Assuming we have a method to update or retrain
 
-            # Implement trading strategy
-            strategy = TradingStrategy(trainer.model, risk_manager)
-            action, price = strategy.decide(market_data)
+                # Get market data for trading decision
+                market_data = {'current_price': processed_data['Close'].iloc[-1], 'volume': processed_data['Volume'].iloc[-1]}
 
-            # Execute trade
-            if action != 'Hold':
-                trade_size = risk_manager.calculate_trade_size(price, DataFetcher.fetch_available_capital())
-                order_id = executer.execute_trade(action.lower(), market_data['symbol'], trade_size, price)
-                risk_manager.check_order_status(order_id)  # Assuming order_id is returned by execute_trade
+                # Implement trading strategy
+                strategy = TradingStrategy(model, risk_manager.risk_parameters)
+                action, price = strategy.decide(market_data)
+                logging.info(f"Trading decision for {symbol}: {action} at price {price}")
 
-            time.sleep(60)  # Sleep for 1 minute before next iteration
-        except Exception as e:
-            print("Error occurred:", str(e))
-            time.sleep(60)  # Sleep for 1 minute and continue loop
+                # Execute trade
+                if action != 'Hold':
+                    trade_size = risk_manager.calculate_trade_size(price, fetcher.fetch_available_capital())
+                    order_id = executer.execute_trade(action.lower(), symbol, trade_size, price)
+                    order_status = executer.check_order_status(order_id)
+                    logging.info(f"Trade executed for {symbol}. Order ID: {order_id}, Status: {order_status}")
 
-# Entry point of the program
+            except Exception as e:
+                logging.error(f"Error occurred for {symbol}: {str(e)}")
+        time.sleep(60)  # Sleep for 1 minute before next iteration
+
 if __name__ == "__main__":
     main_trading_loop()

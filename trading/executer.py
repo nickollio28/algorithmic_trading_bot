@@ -1,18 +1,24 @@
 import requests
+import logging
+import asyncio
+import json
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class TradeExecuter:
     def __init__(self, api_url, api_key):
         self.api_url = api_url
         self.api_key = api_key
 
-    def execute_trade(self, action, symbol, quantity, price=None):
+    async def execute_trade(self, action, symbol, quantity, price=None):
         """
-        Send a trade order to the brokerage API.
-        - action: 'buy' or 'sell'
-        - symbol: Stock symbol
-        - quantity: Number of shares
-        - price: Optional price for limit orders
+        Asynchronously send a trade order to the brokerage API to improve execution speed.
         """
+        if action not in ['buy', 'sell']:
+            logging.error("Invalid action specified. Must be 'buy' or 'sell'.")
+            raise ValueError("Action must be 'buy' or 'sell'.")
+
         data = {
             'action': action,
             'symbol': symbol,
@@ -21,26 +27,38 @@ class TradeExecuter:
             'apikey': self.api_key
         }
         headers = {'Content-Type': 'application/json'}
-        response = requests.post(f"{self.api_url}/orders", json=data, headers=headers)
-        if response.status_code == 200:
-            print(f"Trade executed: {action} {quantity} shares of {symbol} at {price}")
-        else:
-            print(f"Failed to execute trade: {response.text}")
+        
+        try:
+            async with requests.AsyncClient() as client:
+                response = await client.post(f"{self.api_url}/orders", json=data, headers=headers)
+                response.raise_for_status()  # Raises HTTPError for bad responses
+                logging.info(f"Trade executed: {action} {quantity} shares of {symbol} at {price}")
+        except requests.exceptions.HTTPError as err:
+            logging.error(f"HTTP error occurred: {err}")
+        except Exception as err:
+            logging.error(f"An error occurred: {err}")
 
-    def check_order_status(self, order_id):
+    async def check_order_status(self, order_id):
         """
-        Check the status of an order.
+        Asynchronously check the status of an order.
         """
-        response = requests.get(f"{self.api_url}/orders/{order_id}", params={'apikey': self.api_key})
-        if response.status_code == 200:
-            print(f"Order status: {response.json()['status']}")
-        else:
-            print(f"Failed to check order status: {response.text}")
+        try:
+            async with requests.AsyncClient() as client:
+                response = await client.get(f"{self.api_url}/orders/{order_id}", params={'apikey': self.api_key})
+                response.raise_for_status()  # Raises HTTPError for bad responses
+                logging.info(f"Order status: {json.loads(response.text)['status']}")
+        except requests.exceptions.HTTPError as err:
+            logging.error(f"HTTP error occurred: {err}")
+        except Exception as err:
+            logging.error(f"An error occurred: {err}")
 
 # Example usage
 if __name__ == "__main__":
     executer = TradeExecuter("https://api.brokerage.com", "your_api_key")
-    # Example executing a buy order
-    executer.execute_trade('buy', 'AAPL', 10, price=150.50)
-    # Example checking an order status
-    executer.check_order_status("123456")
+    try:
+        # Example executing a buy order
+        asyncio.run(executer.execute_trade('buy', 'AAPL', 10, price=150.50))
+        # Example checking an order status
+        asyncio.run(executer.check_order_status("123456"))
+    except Exception as e:
+        logging.error(f"An exception occurred: {e}")
