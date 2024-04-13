@@ -1,13 +1,13 @@
 import logging
 import time
-from data.fetcher import DataFetcher
-from data.cleaner import DataCleaner
-from data.processor import DataProcessor
-from models.train import ModelTrainer
-from trading.strategy import TradingStrategy
-from trading.executer import TradeExecuter
-from trading.risk_management import RiskManager
-from utilities.config import Config
+from fetcher import DataFetcher
+from cleaner import DataCleaner
+from processor import DataProcessor
+from train import ModelTrainer
+from strategy import TradingStrategy
+from executer import TradeExecuter
+from risk_management import RiskManager
+from config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,8 +27,6 @@ def main_trading_loop():
             try:
                 # Fetch and process data for each stock
                 raw_data = fetcher.fetch_stock_data(symbol, '1d')  # Fetch daily data for the stock
-                logging.info(f"Data fetched successfully for {symbol}.")
-
                 cleaned_data = cleaner.clean_stock_data(raw_data)
                 processed_data = processor.add_technical_indicators(cleaned_data)
                 logging.info(f"Data cleaned and processed for {symbol}.")
@@ -40,14 +38,13 @@ def main_trading_loop():
                 market_data = {'current_price': processed_data['Close'].iloc[-1], 'volume': processed_data['Volume'].iloc[-1]}
 
                 # Implement trading strategy
-                strategy = TradingStrategy(model, risk_manager.risk_parameters)
-                action, price = strategy.decide(market_data)
-                logging.info(f"Trading decision for {symbol}: {action} at price {price}")
+                strategy = TradingStrategy(model, risk_manager)
+                action, trade_size = strategy.decide(market_data)
+                logging.info(f"Trading decision for {symbol}: {action} at price {market_data['current_price']}")
 
                 # Execute trade
                 if action != 'Hold':
-                    trade_size = risk_manager.calculate_trade_size(price, fetcher.fetch_available_capital())
-                    order_id = executer.execute_trade(action.lower(), symbol, trade_size, price)
+                    order_id = executer.execute_trade(action.lower(), symbol, trade_size, market_data['current_price'])
                     order_status = executer.check_order_status(order_id)
                     logging.info(f"Trade executed for {symbol}. Order ID: {order_id}, Status: {order_status}")
 

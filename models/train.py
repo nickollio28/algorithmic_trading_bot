@@ -1,13 +1,12 @@
 import pandas as pd
 import numpy as np
-from textblob import TextBlob
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import tensorflow as tf
-from keras.models import Model
-from keras.layers import Input, Dense, LSTM, Dropout, concatenate
-from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, LSTM, Dropout, concatenate
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +25,8 @@ class StockPricePredictor:
     def preprocess_data(self):
         """Preprocess data by scaling features and splitting the dataset."""
         if self.news_data is not None:
-            self.news_data['sentiment'] = self.news_data['news_text'].apply(lambda x: TextBlob(x).sentiment.polarity)
+            # Assume news_data contains 'news_text' for sentiment analysis
+            self.data['sentiment'] = self.news_data['news_text'].apply(lambda x: TextBlob(x).sentiment.polarity)
             self.data = pd.merge(self.data, self.news_data[['sentiment']], left_index=True, right_index=True, how='left')
         
         features = self.data.drop(['Stock_Price'], axis=1)
@@ -57,7 +57,6 @@ class StockPricePredictor:
         # Output layer
         output = Dense(1)(concatenated)
         
-        # Creating model
         self.model = Model(inputs=[main_input, lstm_input], outputs=output)
         self.model.compile(optimizer=Adam(learning_rate=self.learning_rate), loss='mean_squared_error')
 
